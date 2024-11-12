@@ -4,7 +4,7 @@
 	"description": "プライベートなVS Code拡張機能のREADMEで画像表示させる方法のサンプルです。VS Codeのchat-sampleをベースにしています。",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/microsoft/vscode-extension-samples"
+		"url": "https://github.com/yuma-722/test"
 	},
 	"version": "0.1.0",
 	"engines": {
