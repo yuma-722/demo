@@ -2,11 +2,11 @@
 [vscode-extension-samples/chat-sample](https://github.com/microsoft/vscode-extension-samples/tree/main/chat-sample)をベースにしています。
 
 # 画像表示テスト
-画像パス：images/240718_AISpeech.jpg
-![ローカル](images/240718_AISpeech.jpg)
+パブリックに公開したくない画像：images/private.jpg
+![相対パス](images/private.jpg)
 
-パブリック・フルパス：https://github.com/yuma-722/test/blob/main/images/240718_AISpeech.jpg
-![パブリック・フルパス](https://github.com/yuma-722/test/blob/main/images/240718_AISpeech.jpg)
+パブリックに公開している画像：https://github.com/yuma-722/test/raw/HEAD/images/public.jpg
+![パブリックなフルパス](https://github.com/yuma-722/test/raw/HEAD/images/public.jpg)
 
 # 前提となるディレクトリ構成
 
