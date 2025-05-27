@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.35.1.17967",
-      "templateHash": "14804072364127824170"
+      "templateHash": "9319068932956730694"
     }
   },
   "parameters": {
@@ -14,13 +14,6 @@
       "maxLength": 14,
       "metadata": {
         "description": "リソースの名前に付けるユニークな文字列。英数字のみで入力。"
-      }
-    },
-    "deploymentStorageContainerName": {
-      "type": "string",
-      "defaultValue": "function-deployments",
-      "metadata": {
-        "description": "デプロイメント用ストレージに使用するBlob Containerの名前"
       }
     }
   },
@@ -83,7 +76,7 @@
           "deployment": {
             "storage": {
               "type": "blobContainer",
-              "value": "[format('{0}{1}', reference(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2024-01-01').primaryEndpoints.blob, parameters('deploymentStorageContainerName'))]",
+              "value": "[format('{0}function-deployments', reference(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2024-01-01').primaryEndpoints.blob)]",
               "authentication": {
                 "type": "SystemAssignedIdentity"
               }
