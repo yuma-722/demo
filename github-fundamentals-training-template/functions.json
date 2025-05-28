@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.35.1.17967",
-      "templateHash": "1448058974897612511"
+      "templateHash": "9364566183139683389"
     }
   },
   "parameters": {
@@ -14,6 +14,80 @@
       "maxLength": 14,
       "metadata": {
         "description": "リソースの名前に付けるユニークな文字列。英数字のみで入力。"
+      }
+    },
+    "tags": {
+      "type": "object",
+      "defaultValue": {}
+    },
+    "accessTier": {
+      "type": "string",
+      "defaultValue": "Hot",
+      "allowedValues": [
+        "Cool",
+        "Hot",
+        "Premium"
+      ]
+    },
+    "allowBlobPublicAccess": {
+      "type": "bool",
+      "defaultValue": false
+    },
+    "allowCrossTenantReplication": {
+      "type": "bool",
+      "defaultValue": true
+    },
+    "allowSharedKeyAccess": {
+      "type": "bool",
+      "defaultValue": false
+    },
+    "containers": {
+      "type": "array",
+      "defaultValue": []
+    },
+    "defaultToOAuthAuthentication": {
+      "type": "bool",
+      "defaultValue": false
+    },
+    "deleteRetentionPolicy": {
+      "type": "object",
+      "defaultValue": {}
+    },
+    "dnsEndpointType": {
+      "type": "string",
+      "defaultValue": "Standard",
+      "allowedValues": [
+        "AzureDnsZone",
+        "Standard"
+      ]
+    },
+    "kind": {
+      "type": "string",
+      "defaultValue": "StorageV2"
+    },
+    "minimumTlsVersion": {
+      "type": "string",
+      "defaultValue": "TLS1_2"
+    },
+    "networkAcls": {
+      "type": "object",
+      "defaultValue": {
+        "bypass": "AzureServices",
+        "defaultAction": "Allow"
+      }
+    },
+    "publicNetworkAccess": {
+      "type": "string",
+      "defaultValue": "Enabled",
+      "allowedValues": [
+        "Enabled",
+        "Disabled"
+      ]
+    },
+    "sku": {
+      "type": "object",
+      "defaultValue": {
+        "name": "Standard_LRS"
       }
     }
   },
@@ -26,17 +100,51 @@
   },
   "resources": [
     {
+      "copy": {
+        "name": "storage::blobServices::container",
+        "count": "[length(parameters('containers'))]"
+      },
+      "condition": "[not(empty(parameters('containers')))]",
+      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+      "apiVersion": "2024-01-01",
+      "name": "[format('{0}/{1}/{2}', variables('storageAccountName'), 'default', parameters('containers')[copyIndex()].name)]",
+      "properties": {
+        "publicAccess": "[if(contains(parameters('containers')[copyIndex()], 'publicAccess'), parameters('containers')[copyIndex()].publicAccess, 'None')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts/blobServices', variables('storageAccountName'), 'default')]"
+      ]
+    },
+    {
+      "condition": "[not(empty(parameters('containers')))]",
+      "type": "Microsoft.Storage/storageAccounts/blobServices",
+      "apiVersion": "2024-01-01",
+      "name": "[format('{0}/{1}', variables('storageAccountName'), 'default')]",
+      "properties": {
+        "deleteRetentionPolicy": "[parameters('deleteRetentionPolicy')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+      ]
+    },
+    {
       "type": "Microsoft.Storage/storageAccounts",
       "apiVersion": "2024-01-01",
       "name": "[variables('storageAccountName')]",
       "location": "[variables('location')]",
-      "sku": {
-        "name": "Standard_LRS"
-      },
-      "kind": "Storage",
+      "tags": "[parameters('tags')]",
+      "kind": "[parameters('kind')]",
+      "sku": "[parameters('sku')]",
       "properties": {
-        "supportsHttpsTrafficOnly": true,
-        "defaultToOAuthAuthentication": true
+        "accessTier": "[parameters('accessTier')]",
+        "allowBlobPublicAccess": "[parameters('allowBlobPublicAccess')]",
+        "allowCrossTenantReplication": "[parameters('allowCrossTenantReplication')]",
+        "allowSharedKeyAccess": "[parameters('allowSharedKeyAccess')]",
+        "defaultToOAuthAuthentication": "[parameters('defaultToOAuthAuthentication')]",
+        "dnsEndpointType": "[parameters('dnsEndpointType')]",
+        "minimumTlsVersion": "[parameters('minimumTlsVersion')]",
+        "networkAcls": "[parameters('networkAcls')]",
+        "publicNetworkAccess": "[parameters('publicNetworkAccess')]"
       }
     },
     {
