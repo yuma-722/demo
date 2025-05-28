@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.35.1.17967",
-      "templateHash": "16774887183782518103"
+      "templateHash": "10294086327752674075"
     }
   },
   "parameters": {
@@ -22,11 +22,17 @@
     "storageAccountName": "[format('st{0}{1}', toLower(parameters('namePrefix')), substring(uniqueString(toLower(parameters('namePrefix')), resourceGroup().id, deployment().name), 0, 5))]",
     "appServicePlanName": "[format('plan-{0}-{1}', toLower(parameters('namePrefix')), substring(uniqueString(toLower(parameters('namePrefix')), resourceGroup().id, deployment().name), 0, 5))]",
     "functionAppName": "[format('func-{0}-{1}', toLower(parameters('namePrefix')), substring(uniqueString(toLower(parameters('namePrefix')), resourceGroup().id, deployment().name), 0, 5))]",
+    "deploymentContainer": "function-deployments",
     "accessTier": "Hot",
     "allowBlobPublicAccess": false,
     "allowCrossTenantReplication": true,
-    "allowSharedKeyAccess": false,
-    "containers": [],
+    "allowSharedKeyAccess": true,
+    "containers": [
+      {
+        "name": "[variables('deploymentContainer')]",
+        "publicAccess": "None"
+      }
+    ],
     "defaultToOAuthAuthentication": false,
     "deleteRetentionPolicy": {},
     "dnsEndpointType": "Standard",
@@ -39,8 +45,7 @@
     "publicNetworkAccess": "Enabled",
     "sku": {
       "name": "Standard_LRS"
-    },
-    "storageRoleDefinitionId": "b7e6dc6d-f1e8-4753-8033-0f276bb0955b"
+    }
   },
   "resources": [
     {
@@ -48,7 +53,6 @@
         "name": "storage::blobServices::container",
         "count": "[length(variables('containers'))]"
       },
-      "condition": "[not(empty(variables('containers')))]",
       "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
       "apiVersion": "2024-01-01",
       "name": "[format('{0}/{1}/{2}', variables('storageAccountName'), 'default', variables('containers')[copyIndex()].name)]",
@@ -60,7 +64,6 @@
       ]
     },
     {
-      "condition": "[not(empty(variables('containers')))]",
       "type": "Microsoft.Storage/storageAccounts/blobServices",
       "apiVersion": "2024-01-01",
       "name": "[format('{0}/{1}', variables('storageAccountName'), 'default')]",
@@ -110,9 +113,6 @@
       "name": "[variables('functionAppName')]",
       "location": "[variables('location')]",
       "kind": "functionapp,linux",
-      "identity": {
-        "type": "SystemAssigned"
-      },
       "properties": {
         "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]",
         "siteConfig": {
@@ -122,8 +122,8 @@
               "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', variables('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2024-01-01').keys[0].value)]"
             },
             {
-              "name": "FUNCTIONS_EXTENSION_VERSION",
-              "value": "~4"
+              "name": "DEPLOYMENT_STORAGE_CONNECTION_STRING",
+              "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', variables('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2024-01-01').keys[0].value)]"
             }
           ]
         },
@@ -131,9 +131,10 @@
           "deployment": {
             "storage": {
               "type": "blobContainer",
-              "value": "[format('{0}function-deployments', reference(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2024-01-01').primaryEndpoints.blob)]",
+              "value": "[format('{0}{1}', reference(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2024-01-01').primaryEndpoints.blob, variables('deploymentContainer'))]",
               "authentication": {
-                "type": "SystemAssignedIdentity"
+                "type": "storageaccountconnectionstring",
+                "storageAccountConnectionStringName": "DEPLOYMENT_STORAGE_CONNECTION_STRING"
               }
             }
           },
@@ -150,21 +151,6 @@
       },
       "dependsOn": [
         "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]",
-        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
-      ]
-    },
-    {
-      "type": "Microsoft.Authorization/roleAssignments",
-      "apiVersion": "2022-04-01",
-      "scope": "[format('Microsoft.Storage/storageAccounts/{0}', variables('storageAccountName'))]",
-      "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), variables('storageRoleDefinitionId'))]",
-      "properties": {
-        "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', variables('storageRoleDefinitionId'))]",
-        "principalId": "[reference(resourceId('Microsoft.Web/sites', variables('functionAppName')), '2024-04-01', 'full').identity.principalId]",
-        "principalType": "ServicePrincipal"
-      },
-      "dependsOn": [
-        "[resourceId('Microsoft.Web/sites', variables('functionAppName'))]",
         "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
       ]
     }
