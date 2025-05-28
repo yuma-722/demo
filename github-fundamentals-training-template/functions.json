@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.35.1.17967",
-      "templateHash": "9364566183139683389"
+      "templateHash": "16774887183782518103"
     }
   },
   "parameters": {
@@ -15,80 +15,6 @@
       "metadata": {
         "description": "リソースの名前に付けるユニークな文字列。英数字のみで入力。"
       }
-    },
-    "tags": {
-      "type": "object",
-      "defaultValue": {}
-    },
-    "accessTier": {
-      "type": "string",
-      "defaultValue": "Hot",
-      "allowedValues": [
-        "Cool",
-        "Hot",
-        "Premium"
-      ]
-    },
-    "allowBlobPublicAccess": {
-      "type": "bool",
-      "defaultValue": false
-    },
-    "allowCrossTenantReplication": {
-      "type": "bool",
-      "defaultValue": true
-    },
-    "allowSharedKeyAccess": {
-      "type": "bool",
-      "defaultValue": false
-    },
-    "containers": {
-      "type": "array",
-      "defaultValue": []
-    },
-    "defaultToOAuthAuthentication": {
-      "type": "bool",
-      "defaultValue": false
-    },
-    "deleteRetentionPolicy": {
-      "type": "object",
-      "defaultValue": {}
-    },
-    "dnsEndpointType": {
-      "type": "string",
-      "defaultValue": "Standard",
-      "allowedValues": [
-        "AzureDnsZone",
-        "Standard"
-      ]
-    },
-    "kind": {
-      "type": "string",
-      "defaultValue": "StorageV2"
-    },
-    "minimumTlsVersion": {
-      "type": "string",
-      "defaultValue": "TLS1_2"
-    },
-    "networkAcls": {
-      "type": "object",
-      "defaultValue": {
-        "bypass": "AzureServices",
-        "defaultAction": "Allow"
-      }
-    },
-    "publicNetworkAccess": {
-      "type": "string",
-      "defaultValue": "Enabled",
-      "allowedValues": [
-        "Enabled",
-        "Disabled"
-      ]
-    },
-    "sku": {
-      "type": "object",
-      "defaultValue": {
-        "name": "Standard_LRS"
-      }
     }
   },
   "variables": {
@@ -96,32 +22,50 @@
     "storageAccountName": "[format('st{0}{1}', toLower(parameters('namePrefix')), substring(uniqueString(toLower(parameters('namePrefix')), resourceGroup().id, deployment().name), 0, 5))]",
     "appServicePlanName": "[format('plan-{0}-{1}', toLower(parameters('namePrefix')), substring(uniqueString(toLower(parameters('namePrefix')), resourceGroup().id, deployment().name), 0, 5))]",
     "functionAppName": "[format('func-{0}-{1}', toLower(parameters('namePrefix')), substring(uniqueString(toLower(parameters('namePrefix')), resourceGroup().id, deployment().name), 0, 5))]",
+    "accessTier": "Hot",
+    "allowBlobPublicAccess": false,
+    "allowCrossTenantReplication": true,
+    "allowSharedKeyAccess": false,
+    "containers": [],
+    "defaultToOAuthAuthentication": false,
+    "deleteRetentionPolicy": {},
+    "dnsEndpointType": "Standard",
+    "kind": "StorageV2",
+    "minimumTlsVersion": "TLS1_2",
+    "networkAcls": {
+      "bypass": "AzureServices",
+      "defaultAction": "Allow"
+    },
+    "publicNetworkAccess": "Enabled",
+    "sku": {
+      "name": "Standard_LRS"
+    },
     "storageRoleDefinitionId": "b7e6dc6d-f1e8-4753-8033-0f276bb0955b"
   },
   "resources": [
     {
       "copy": {
         "name": "storage::blobServices::container",
-        "count": "[length(parameters('containers'))]"
+        "count": "[length(variables('containers'))]"
       },
-      "condition": "[not(empty(parameters('containers')))]",
+      "condition": "[not(empty(variables('containers')))]",
       "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
       "apiVersion": "2024-01-01",
-      "name": "[format('{0}/{1}/{2}', variables('storageAccountName'), 'default', parameters('containers')[copyIndex()].name)]",
+      "name": "[format('{0}/{1}/{2}', variables('storageAccountName'), 'default', variables('containers')[copyIndex()].name)]",
       "properties": {
-        "publicAccess": "[if(contains(parameters('containers')[copyIndex()], 'publicAccess'), parameters('containers')[copyIndex()].publicAccess, 'None')]"
+        "publicAccess": "[if(contains(variables('containers')[copyIndex()], 'publicAccess'), variables('containers')[copyIndex()].publicAccess, 'None')]"
       },
       "dependsOn": [
         "[resourceId('Microsoft.Storage/storageAccounts/blobServices', variables('storageAccountName'), 'default')]"
       ]
     },
     {
-      "condition": "[not(empty(parameters('containers')))]",
+      "condition": "[not(empty(variables('containers')))]",
       "type": "Microsoft.Storage/storageAccounts/blobServices",
       "apiVersion": "2024-01-01",
       "name": "[format('{0}/{1}', variables('storageAccountName'), 'default')]",
       "properties": {
-        "deleteRetentionPolicy": "[parameters('deleteRetentionPolicy')]"
+        "deleteRetentionPolicy": "[variables('deleteRetentionPolicy')]"
       },
       "dependsOn": [
         "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
@@ -132,19 +76,18 @@
       "apiVersion": "2024-01-01",
       "name": "[variables('storageAccountName')]",
       "location": "[variables('location')]",
-      "tags": "[parameters('tags')]",
-      "kind": "[parameters('kind')]",
-      "sku": "[parameters('sku')]",
+      "kind": "[variables('kind')]",
+      "sku": "[variables('sku')]",
       "properties": {
-        "accessTier": "[parameters('accessTier')]",
-        "allowBlobPublicAccess": "[parameters('allowBlobPublicAccess')]",
-        "allowCrossTenantReplication": "[parameters('allowCrossTenantReplication')]",
-        "allowSharedKeyAccess": "[parameters('allowSharedKeyAccess')]",
-        "defaultToOAuthAuthentication": "[parameters('defaultToOAuthAuthentication')]",
-        "dnsEndpointType": "[parameters('dnsEndpointType')]",
-        "minimumTlsVersion": "[parameters('minimumTlsVersion')]",
-        "networkAcls": "[parameters('networkAcls')]",
-        "publicNetworkAccess": "[parameters('publicNetworkAccess')]"
+        "accessTier": "[variables('accessTier')]",
+        "allowBlobPublicAccess": "[variables('allowBlobPublicAccess')]",
+        "allowCrossTenantReplication": "[variables('allowCrossTenantReplication')]",
+        "allowSharedKeyAccess": "[variables('allowSharedKeyAccess')]",
+        "defaultToOAuthAuthentication": "[variables('defaultToOAuthAuthentication')]",
+        "dnsEndpointType": "[variables('dnsEndpointType')]",
+        "minimumTlsVersion": "[variables('minimumTlsVersion')]",
+        "networkAcls": "[variables('networkAcls')]",
+        "publicNetworkAccess": "[variables('publicNetworkAccess')]"
       }
     },
     {
