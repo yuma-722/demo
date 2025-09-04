@@ -1,0 +1,158 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.35.1.17967",
+      "templateHash": "10294086327752674075"
+    }
+  },
+  "parameters": {
+    "namePrefix": {
+      "type": "string",
+      "maxLength": 14,
+      "metadata": {
+        "description": "リソースの名前に付けるユニークな文字列。英数字のみで入力。"
+      }
+    }
+  },
+  "variables": {
+    "location": "[resourceGroup().location]",
+    "storageAccountName": "[format('st{0}{1}', toLower(parameters('namePrefix')), substring(uniqueString(toLower(parameters('namePrefix')), resourceGroup().id, deployment().name), 0, 5))]",
+    "appServicePlanName": "[format('plan-{0}-{1}', toLower(parameters('namePrefix')), substring(uniqueString(toLower(parameters('namePrefix')), resourceGroup().id, deployment().name), 0, 5))]",
+    "functionAppName": "[format('func-{0}-{1}', toLower(parameters('namePrefix')), substring(uniqueString(toLower(parameters('namePrefix')), resourceGroup().id, deployment().name), 0, 5))]",
+    "deploymentContainer": "function-deployments",
+    "accessTier": "Hot",
+    "allowBlobPublicAccess": false,
+    "allowCrossTenantReplication": true,
+    "allowSharedKeyAccess": true,
+    "containers": [
+      {
+        "name": "[variables('deploymentContainer')]",
+        "publicAccess": "None"
+      }
+    ],
+    "defaultToOAuthAuthentication": false,
+    "deleteRetentionPolicy": {},
+    "dnsEndpointType": "Standard",
+    "kind": "StorageV2",
+    "minimumTlsVersion": "TLS1_2",
+    "networkAcls": {
+      "bypass": "AzureServices",
+      "defaultAction": "Allow"
+    },
+    "publicNetworkAccess": "Enabled",
+    "sku": {
+      "name": "Standard_LRS"
+    }
+  },
+  "resources": [
+    {
+      "copy": {
+        "name": "storage::blobServices::container",
+        "count": "[length(variables('containers'))]"
+      },
+      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+      "apiVersion": "2024-01-01",
+      "name": "[format('{0}/{1}/{2}', variables('storageAccountName'), 'default', variables('containers')[copyIndex()].name)]",
+      "properties": {
+        "publicAccess": "[if(contains(variables('containers')[copyIndex()], 'publicAccess'), variables('containers')[copyIndex()].publicAccess, 'None')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts/blobServices', variables('storageAccountName'), 'default')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices",
+      "apiVersion": "2024-01-01",
+      "name": "[format('{0}/{1}', variables('storageAccountName'), 'default')]",
+      "properties": {
+        "deleteRetentionPolicy": "[variables('deleteRetentionPolicy')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2024-01-01",
+      "name": "[variables('storageAccountName')]",
+      "location": "[variables('location')]",
+      "kind": "[variables('kind')]",
+      "sku": "[variables('sku')]",
+      "properties": {
+        "accessTier": "[variables('accessTier')]",
+        "allowBlobPublicAccess": "[variables('allowBlobPublicAccess')]",
+        "allowCrossTenantReplication": "[variables('allowCrossTenantReplication')]",
+        "allowSharedKeyAccess": "[variables('allowSharedKeyAccess')]",
+        "defaultToOAuthAuthentication": "[variables('defaultToOAuthAuthentication')]",
+        "dnsEndpointType": "[variables('dnsEndpointType')]",
+        "minimumTlsVersion": "[variables('minimumTlsVersion')]",
+        "networkAcls": "[variables('networkAcls')]",
+        "publicNetworkAccess": "[variables('publicNetworkAccess')]"
+      }
+    },
+    {
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2024-04-01",
+      "name": "[variables('appServicePlanName')]",
+      "location": "[variables('location')]",
+      "kind": "functionapp",
+      "sku": {
+        "name": "FC1",
+        "tier": "FlexConsumption"
+      },
+      "properties": {
+        "reserved": true
+      }
+    },
+    {
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2024-04-01",
+      "name": "[variables('functionAppName')]",
+      "location": "[variables('location')]",
+      "kind": "functionapp,linux",
+      "properties": {
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]",
+        "siteConfig": {
+          "appSettings": [
+            {
+              "name": "AzureWebJobsStorage",
+              "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', variables('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2024-01-01').keys[0].value)]"
+            },
+            {
+              "name": "DEPLOYMENT_STORAGE_CONNECTION_STRING",
+              "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', variables('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2024-01-01').keys[0].value)]"
+            }
+          ]
+        },
+        "functionAppConfig": {
+          "deployment": {
+            "storage": {
+              "type": "blobContainer",
+              "value": "[format('{0}{1}', reference(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2024-01-01').primaryEndpoints.blob, variables('deploymentContainer'))]",
+              "authentication": {
+                "type": "storageaccountconnectionstring",
+                "storageAccountConnectionStringName": "DEPLOYMENT_STORAGE_CONNECTION_STRING"
+              }
+            }
+          },
+          "runtime": {
+            "name": "python",
+            "version": "3.12"
+          },
+          "scaleAndConcurrency": {
+            "maximumInstanceCount": 100,
+            "instanceMemoryMB": 2048
+          }
+        },
+        "httpsOnly": true
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+      ]
+    }
+  ]
+}
